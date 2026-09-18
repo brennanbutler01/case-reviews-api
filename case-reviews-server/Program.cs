@@ -35,7 +35,7 @@ if (demo && visitorDemo) throw new InvalidOperationException("Choose one demo mo
 const string demoIssuer = "case-reviews-local-demo";
 // This public key material is deliberately restricted to the isolated local demo.
 const string demoKey = "case-reviews-synthetic-local-demo-key-not-for-production-2026";
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => { if (visitorDemo) options.Filters.Add<VisitorWriteFilter>(); });
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://127.0.0.1:5189"])
     .AllowAnyHeader().AllowAnyMethod()));
@@ -108,7 +108,19 @@ if (demo)
 if (visitorDemo)
 {
     using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.EnsureCreatedAsync();
+    var database = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await database.Database.OpenConnectionAsync();
+    try
+    {
+        // Serialize schema initialization across simultaneous container cold starts.
+        await database.Database.ExecuteSqlRawAsync("SELECT pg_advisory_lock(52105210)");
+        await database.Database.EnsureCreatedAsync();
+    }
+    finally
+    {
+        await database.Database.ExecuteSqlRawAsync("SELECT pg_advisory_unlock(52105210)");
+        await database.Database.CloseConnectionAsync();
+    }
     app.MapVisitorDemo(visitorKey!);
 }
 app.UseCors();

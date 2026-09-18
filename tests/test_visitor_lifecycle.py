@@ -1,6 +1,5 @@
 """Local disposable-container checks for physical deletion and expiry."""
-import json
-import re
+import concurrent.futures
 import subprocess
 import time
 import unittest
@@ -14,6 +13,21 @@ def sql(statement):
     return result.stdout.strip()
 
 class LifecycleTests(unittest.TestCase):
+    def test_reset_serializes_with_inflight_writes(self):
+        status, session = request("/demo/session", "POST")
+        self.assertEqual(status, 200)
+        subject, token = session["subject"], session["accessToken"]
+        self.assertRegex(subject, r"^visitor-[a-f0-9]{32}$")
+        def write(_):
+            return request("/Staff", "POST", {"firstName":"Synthetic", "lastName":"Concurrent", "orNumber":"OR1234567", "office":0}, token)[0]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(write, i) for i in range(16)]
+            self.assertEqual(request("/demo/session", "DELETE", token=token)[0], 204)
+            statuses = [future.result() for future in futures]
+        self.assertTrue(all(status in [201,401] for status in statuses), statuses)
+        count = sql(f"""SELECT COUNT(*) FROM "Staff" WHERE "CreatedBy" = '{subject}'""")
+        self.assertEqual(count, "0")
+
     def test_reset_and_expiry_delete_records(self):
         for mode in ["reset", "expiry"]:
             status, session = request("/demo/session", "POST")

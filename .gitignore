@@ -9,3 +9,5 @@ riderModule.iml
 
 __pycache__/
 *.pyc
+
+.vercel/

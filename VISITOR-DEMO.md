@@ -19,10 +19,10 @@ The isolated database belongs to the case-reviews-visitor Compose project. API: 
 
 ## Hosting
 
-render.yaml describes the free web-service deployment, pending a personal Render login and a dedicated PostgreSQL connection string. It does not provision or authorize a paid database. A free hosting plan can sleep, so initial requests may have a cold-start delay. Confirm current provider availability before creating resources.
+Vercel container images are the selected deployment path. See VERCEL.md. The Neon free_v3 database integration requires owner acceptance of its marketplace terms before provisioning. No Render account is required.
 
 Build the frontend with `VITE_VISITOR_DEMO=true`, `VITE_BACKEND_API` set to this service's HTTPS URL, and `VITE_PORTFOLIO_DEMO=false`. Deploy the resulting dist directory to the existing Vercel demo project only after running the live visitor tests. The old static demo remains live until this integration is verified.
 
 Required hosted checks: session isolation, reload persistence, reset/revocation, expired-session cleanup, CORS, cold start, and full review/report workflow. Rendering the homepage alone is insufficient.
 
-Verification completed locally: production Docker build, five HTTP ownership/session scenarios, physical deletion on reset and expiry, and the original React browser review/report workflow against PostgreSQL. Hosted verification is still pending personal Render access and a dedicated database. Render's free PostgreSQL expires after 30 days, so it is not a durable free database choice: https://render.com/docs/free
+Verification completed locally: production Docker build, five HTTP ownership/session scenarios, physical deletion on reset and expiry, and the original React browser review/report workflow against PostgreSQL. Hosted verification is still pending Vercel container deployment and a dedicated Neon database.

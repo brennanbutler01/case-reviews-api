@@ -40,6 +40,10 @@ public static class VisitorDemo
     public static async Task DeleteSession(ApplicationDbContext db, string subject)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
+        // Serialize reset with in-flight writes so revoked sessions cannot leave new records behind.
+        var session = await db.VisitorSessions.FromSqlInterpolated(
+            $"SELECT * FROM \"VisitorSessions\" WHERE \"Id\" = {subject} FOR UPDATE").SingleOrDefaultAsync();
+        if (session == null) return;
         var reviews = await db.Reviews.Where(r => r.ReviewedBy == subject)
             .Include(r => r.ReviewElements).Include(r => r.MagiEligibles).ToListAsync();
         foreach (var review in reviews)
