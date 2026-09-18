@@ -22,3 +22,23 @@ jobs:
       - run: python3 tests/test_api.py
       - if: always()
         run: docker compose down -v
+
+  visitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Generate disposable signing key
+        run: python3 -c 'import os,secrets; open(os.environ["GITHUB_ENV"], "a").write("VISITOR_DEMO_SIGNING_KEY=" + secrets.token_urlsafe(48) + "\n")'
+      - run: docker compose -f compose.visitor.yaml up --build -d
+      - name: Wait for API
+        run: |
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:5210/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - run: python3 tests/test_visitor.py
+      - run: python3 tests/test_visitor_lifecycle.py
+      - if: always()
+        run: docker compose -f compose.visitor.yaml down -v

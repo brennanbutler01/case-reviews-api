@@ -28,6 +28,8 @@ class ApiOwnershipTests(unittest.TestCase):
     def setUp(self):
         self.alice = request("/dev/token/alice")[1]["accessToken"]
         self.bob = request("/dev/token/bob")[1]["accessToken"]
+        self.alice_subject = "demo-alice"
+        self.bob_subject = "demo-bob"
         self.staff = []
         self.reviews = []
 
@@ -56,7 +58,7 @@ class ApiOwnershipTests(unittest.TestCase):
 
     def test_staff_ownership_and_route_ids(self):
         staff = self.create_staff(self.alice)
-        self.assertEqual(staff["createdBy"], "demo-alice")
+        self.assertEqual(staff["createdBy"], self.alice_subject)
         path = "/Staff/" + staff["id"]
         for method in ["GET", "PUT", "DELETE"]:
             self.assertEqual(request(path, method, staff if method == "PUT" else None, self.bob)[0],404)
@@ -65,14 +67,14 @@ class ApiOwnershipTests(unittest.TestCase):
         changed = {**staff,"lastName":"Updated","createdBy":"demo-bob"}
         status, result = request(path,"PUT",changed,self.alice)
         self.assertEqual(status,200)
-        self.assertEqual(result["createdBy"],"demo-alice")
+        self.assertEqual(result["createdBy"],self.alice_subject)
         self.assertEqual(result["lastName"],"Updated")
         self.assertNotIn(staff["id"],[s["id"] for s in request("/Staff",token=self.bob)[1]])
 
     def test_review_ownership_children_update_and_staff_delete(self):
         staff = self.create_staff(self.alice)
         review = self.create_review(self.alice,staff)
-        self.assertEqual(review["reviewedBy"],"demo-alice")
+        self.assertEqual(review["reviewedBy"],self.alice_subject)
         path = "/Review/" + review["id"]
         for method in ["GET","PUT","DELETE"]:
             self.assertEqual(request(path,method,review if method == "PUT" else None,self.bob)[0],404)
@@ -83,7 +85,7 @@ class ApiOwnershipTests(unittest.TestCase):
         status, updated = request(path,"PUT",new,self.alice)
         self.assertEqual(status,200,updated)
         persisted = request(path,token=self.alice)[1]
-        self.assertEqual(persisted["reviewedBy"],"demo-alice")
+        self.assertEqual(persisted["reviewedBy"],self.alice_subject)
         self.assertEqual(len(persisted["reviewElements"]),1)
         self.assertEqual(persisted["reviewElements"][0]["reviewedElement"],1)
         self.assertEqual(persisted["reviewElements"][0]["comments"],"replacement")

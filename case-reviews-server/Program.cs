@@ -1,3 +1,6 @@
+using case_reviews_server;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -7,9 +10,28 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+var visitorDemo = builder.Configuration.GetValue<bool>("VisitorDemo:Enabled");
+var visitorKey = builder.Configuration["VisitorDemo:SigningKey"];
+if (visitorDemo && (string.IsNullOrWhiteSpace(visitorKey) || Encoding.UTF8.GetByteCount(visitorKey) < 32))
+    throw new InvalidOperationException("VisitorDemo__SigningKey must contain at least 32 bytes of random secret material.");
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 131072);
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+    if (visitorDemo)
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("sub")?.Value ?? "anonymous",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddFixedWindowLimiter("sessions", limiter =>
+    {
+        limiter.PermitLimit = 30; limiter.Window = TimeSpan.FromMinutes(1); limiter.QueueLimit = 0;
+    });
+});
+if (visitorDemo) builder.Services.AddHostedService<VisitorCleanup>();
 var demo = builder.Configuration.GetValue<bool>("Demo:Enabled");
 if (demo && !builder.Environment.IsDevelopment())
     throw new InvalidOperationException("Demo authentication is only allowed in Development.");
+if (demo && visitorDemo) throw new InvalidOperationException("Choose one demo mode.");
 const string demoIssuer = "case-reviews-local-demo";
 // This public key material is deliberately restricted to the isolated local demo.
 const string demoKey = "case-reviews-synthetic-local-demo-key-not-for-production-2026";
@@ -20,7 +42,28 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
     options.MapInboundClaims = false;
-    if (demo)
+    if (visitorDemo)
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true, ValidIssuer = VisitorDemo.Issuer,
+            ValidateAudience = true, ValidAudience = VisitorDemo.Issuer,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(visitorKey!)),
+            ValidateLifetime = true, ClockSkew = TimeSpan.Zero, NameClaimType = "sub"
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var subject = context.Principal?.FindFirst("sub")?.Value;
+                var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+                if (!await db.VisitorSessions.AnyAsync(s => s.Id == subject && s.ExpiresAt > DateTime.UtcNow))
+                    context.Fail("Visitor session expired or revoked.");
+            }
+        };
+    }
+    else if (demo)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -62,9 +105,16 @@ if (demo)
         return Results.Ok(new { accessToken = new JwtSecurityTokenHandler().WriteToken(token) });
     });
 }
+if (visitorDemo)
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.EnsureCreatedAsync();
+    app.MapVisitorDemo(visitorKey!);
+}
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.Run();

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: case-reviews-demo-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: VisitorDemo__Enabled
+        value: "true"
+      - key: VisitorDemo__SigningKey
+        generateValue: true
+      - key: ConnectionStrings__ConnectionString
+        sync: false
+      - key: Cors__Origins__0
+        value: https://case-reviews-demo.vercel.app

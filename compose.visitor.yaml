@@ -1,0 +1,24 @@
+name: case-reviews-visitor
+services:
+  database:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: visitor_demo
+      POSTGRES_USER: visitor
+      POSTGRES_PASSWORD: local-disposable-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U visitor -d visitor_demo"]
+      interval: 2s
+      retries: 30
+  api:
+    build: .
+    ports: ["127.0.0.1:5210:8080"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      VisitorDemo__Enabled: "true"
+      VisitorDemo__SigningKey: ${VISITOR_DEMO_SIGNING_KEY:?Set a random test signing key}
+      ConnectionStrings__ConnectionString: Host=database;Database=visitor_demo;Username=visitor;Password=local-disposable-only
+      Cors__Origins__0: http://127.0.0.1:5211
+    depends_on:
+      database:
+        condition: service_healthy

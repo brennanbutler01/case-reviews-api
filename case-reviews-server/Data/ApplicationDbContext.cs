@@ -8,6 +8,8 @@ public class ApplicationDbContext : DbContext
     {
     }
 
+    public DbSet<VisitorSession> VisitorSessions { get; set; }
+
     public DbSet<Staff> Staff { get; set; }
     public DbSet<Review> Reviews { get; set; }
     public DbSet<ReviewElement> ReviewElements { get; set; }
