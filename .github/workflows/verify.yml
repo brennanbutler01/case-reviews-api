@@ -1,0 +1,24 @@
+name: Verify API with PostgreSQL
+on:
+  push:
+    branches: [portfolio-refresh]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: docker compose up -d
+      - name: Wait for API
+        run: |
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:5190/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - run: python3 tests/test_api.py
+      - if: always()
+        run: docker compose down -v

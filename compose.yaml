@@ -1,0 +1,35 @@
+name: case-reviews-local
+services:
+  database:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: case_reviews_demo
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: local-synthetic-only
+    volumes:
+      - demo-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo -d case_reviews_demo"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  api:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src/case-reviews-server
+    command: ["dotnet", "run", "--no-launch-profile", "--urls", "http://0.0.0.0:8080"]
+    volumes:
+      - .:/src
+      - nuget:/root/.nuget/packages
+    ports:
+      - "127.0.0.1:5190:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Demo__Enabled: "true"
+      ConnectionStrings__ConnectionString: Host=database;Database=case_reviews_demo;Username=demo;Password=local-synthetic-only
+      Cors__Origins__0: http://127.0.0.1:5189
+    depends_on:
+      database:
+        condition: service_healthy
+volumes:
+  demo-data:
+  nuget:
