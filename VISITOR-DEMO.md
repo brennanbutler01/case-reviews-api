@@ -19,10 +19,10 @@ The isolated database belongs to the case-reviews-visitor Compose project. API: 
 
 ## Hosting
 
-Vercel container images are the selected deployment path. See VERCEL.md. The Neon free_v3 database integration requires owner acceptance of its marketplace terms before provisioning. No Render account is required.
+Vercel container images are the deployed hosting path. See VERCEL.md. The API runs in the personal `case-reviews-demo-api` project with the dedicated `case-reviews-demo-db` Neon free_v3 integration. No Render account is used.
 
-Build the frontend with `VITE_VISITOR_DEMO=true`, `VITE_BACKEND_API` set to this service's HTTPS URL, and `VITE_PORTFOLIO_DEMO=false`. Deploy the resulting dist directory to the existing Vercel demo project only after running the live visitor tests. The old static demo remains live until this integration is verified.
+Build the frontend with `VITE_VISITOR_DEMO=true`, `VITE_BACKEND_API` set to this service's HTTPS URL, and `VITE_PORTFOLIO_DEMO=false`. The public frontend now uses this visitor integration. The former static demo remains available as an optional local build mode.
 
-Required hosted checks: session isolation, reload persistence, reset/revocation, expired-session cleanup, CORS, cold start, and full review/report workflow. Rendering the homepage alone is insufficient.
+Hosted checks cover session isolation, reload persistence, reset/revocation, CORS, cold start, and the full review/report workflow. Expiry and physical cleanup are verified locally because they require controlled time and direct database inspection. Rendering the homepage alone is insufficient.
 
-Verification completed locally: production Docker build, five HTTP ownership/session scenarios, physical deletion on reset and expiry, and the original React browser review/report workflow against PostgreSQL. Hosted verification is still pending Vercel container deployment and a dedicated Neon database.
+Verification completed locally and on hosting: the production Docker build, five HTTP ownership/session scenarios, physical deletion on reset and expiry locally, and desktop/mobile React review/report workflows against PostgreSQL. The hosted API and frontend passed visitor isolation, persistence, PDF export, reset, and token-revocation checks.

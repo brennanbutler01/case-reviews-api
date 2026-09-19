@@ -25,7 +25,17 @@ docker compose exec api dotnet list package --vulnerable --include-transitive
 
 HTTP tests exercise real PostgreSQL persistence, anonymous access, owner isolation, forged ownership, route IDs, invalid inputs, child replacement, and staff deletion constraints.
 
-## Hosted configuration
+## Hosted visitor demo
+
+The portfolio frontend at https://case-reviews-demo.vercel.app uses this API at https://case-reviews-demo-api.vercel.app. Both run in Brennan's personal Vercel Hobby scope, with a dedicated Neon free database. Visitors receive isolated one-hour sessions without signing up; reset revokes the token and deletes that visitor's records. Use invented information only.
+
+```sh
+VISITOR_API_URL=https://case-reviews-demo-api.vercel.app python3 tests/test_visitor.py
+```
+
+All five hosted ownership/session scenarios pass, including anonymous rejection, visitor isolation, linked-record validation, reset revocation, and rejection of local demo tokens. The companion frontend's desktop and mobile workflows also pass against this API. See [VISITOR-DEMO.md](VISITOR-DEMO.md) for behavioral limits and [VERCEL.md](VERCEL.md) for the personal-project deployment boundary.
+
+## Authenticated hosted configuration
 
 Supply through your deployment environment, never committed configuration:
 
